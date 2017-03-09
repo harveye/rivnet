@@ -138,11 +138,60 @@ AB$drainage #only RHEIN remains
 ################# Functional groups
 #########################################################################
 
-#need to merge functional group info with AB with each functional group info matching the species in AB 
-#Then just divide nr_ind column by each column of the functional group info 
+##################
+#Functional group per species (EPT) or family (IBCH) 
+##################
+
+#Create new columns for each functional group in AB dataset
+AB$grazer_scraper = 0
+AB$miner = 0
+AB$xylophagous = 0
+AB$shredder = 0
+AB$gatherer_collector = 0
+AB$active_filter_feeder = 0
+AB$passive_filter_feeder = 0
+AB$predator = 0
+AB$parasite = 0
+AB$other = 0
+
+#This loop distribute the functional group info from EPT_SP for each species in the AB dataset
+for(i in 1:nrow(AB)){
+  if(AB$species[i] %in%  EPT_SP$species==T) AB[i,14:23] = EPT_SP[which(EPT_SP$species %in% AB$species[i]),8:17]
+}
+
+##################
+#Verify that the loop worked properly 
+##################
+
+#pick random species from this list
+AB$species[which(AB$IBCH_EPT=="EPT")]
+
+#copy and paste below and make sure that the information corresponds
+AB[which(AB$species=="Epeorus_assimilis")[1],14:23]
+EPT_SP[which(EPT_SP$species=="Epeorus_assimilis"),8:17]
+
+##################
+#Distribute species abundances (nr_ind) to each functional group 
+##################
+
+#First: Convert functional group columns into relative proportions (sum = 1 instead of 10 as it is now) 
+AB[,14:23] = AB[,14:23]/10
+
+#Second: Divide columns nr_ind by each functional group columns 
+for(i in 1:nrow(AB)){
+  for(j in 14:23) {
+    if(AB[i,j]!=0) AB[i,j] = AB$nr_ind[i]*AB[i,j]
+  }
+}
 
 
+#Third: verify that it worked well 
+plot(AB$nr_ind[which(AB$IBCH_EPT=="EPT")] ~ rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23]),xlim=c(0,100),ylim=c(0,100))
+#the plot should basically be a relationship one to one if the distribution among each functional group was well done
 
+min(rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23])) ##YOU SHOULD NOT HAVE ZEROS
+min(AB$nr_ind[which(AB$IBCH_EPT=="EPT")]) #since the min here is 1 
+#AFTER VERIFICATION IT SEEMS TAHT SOME SPECIES IN THE EPT DATA HAVE "NA" - NEED TO BE REMOVED VERY FEW OF THEM! 
 
 #########################################################################
 ################# Diversity
