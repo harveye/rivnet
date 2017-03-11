@@ -38,6 +38,7 @@ AB <- read.table(paste0(Dat,"EPT_IBCH_Data20150826.txt"), header=T) #Abundance d
 EPT_SP <- read.table(paste0(Dat,"EPT_SPECIES_20170309.txt"), header=TRUE) #EPT species functional groups
 ENV <- read.table(paste0(Dat,"EPT_IBCH_Localities20150826.txt"), header=T) #ENV data per locality
 
+
 ##################
 #Verify matching between different datasets (do they all contain the same localities)
 ##################
@@ -46,13 +47,19 @@ min(match1) #indicate that all localities in LOC are also present in ENV
 match2 = match(ENV$locality,LOC$locality,0)
 min(match2) #indicate that all localities in LOC are also present in ENV
 #Thus we have Environmental data for all localities ever sampled in the BDM
-
 match3 = match(AB$locality,LOC$locality,0) 
 min(match3) #all localities in AB are also present in LOC
+
+
 match4 = match(LOC$locality,AB$locality,0) 
 min(match4) #HOWEVER not all localities in LOC are present in AB
-#Thus for several of the localities there are no species data - we will need to extract those at some point. 
+#Thus for several of the localities there are no species abundance data 
+# - we need to extract those from other datasets 
+missing = LOC$locality[which(match4==0)] #identify which localities are missing in AB
+LOC = LOC[-which(LOC$locality %in% missing),] #remove them from LOC dataset
+ENV = ENV[-which(ENV$locality %in% missing),] #remove them from ENV dataset
 
+rm(match1);rm(match2);rm(match3);rm(match4)
 #########################################################################
 ################# NETWORK METRICS
 #########################################################################
@@ -71,18 +78,19 @@ for (i in 1:length(V(SUBGRAPH2)$name)){
     V(SUBGRAPH2)$name[i] <- LOC$locality[x]
 }
 
-#This should be 394 sites
-length(sub <- which(V(SUBGRAPH2)$name %in% LOC$locality))
+#This should be 365 sites
+length(unique(sub <- which(V(SUBGRAPH2)$name %in% LOC$locality)))
 
-loc.rhine = V(SUBGRAPH2)$name[sub] #Extract the names of the locality 
+loc.rhine = V(SUBGRAPH2)$name[sub] #Extract the names and order of the localities 
+
 
 ##################
 #plot the network (not very useful)
 ##################
-coords1 <- layout_as_tree(SUBGRAPH2) #set the shape of the layout 
-pdf(paste0(fig.p,"Test6.pdf"), width=30, height=30)
-plot.igraph(SUBGRAPH2,vertex.size=2,vertex.label=NA,layout=coords1)
-dev.off()
+# coords1 <- layout_as_tree(SUBGRAPH2) #set the shape of the layout 
+# pdf(paste0(fig.p,"Test6.pdf"), width=30, height=30)
+# plot.igraph(SUBGRAPH2,vertex.size=2,vertex.label=NA,layout=coords1)
+# dev.off()
 
 ##################
 #Calculate network metrics for the whole network and then extract the values only for the nodes corresponding to BDM sampled sites
@@ -99,16 +107,18 @@ plot(density(DIAM))
 net.met = cbind(BETW,DEG,CENT)
 rm(BETW);rm(DEG);rm(CENT)
 
+
 #########################################################################
 ################# Environmental variables
 #########################################################################
 
 ENV2 = ENV[which(ENV$locality %in% loc.rhine),] #Select only site from the RHIN 
 ENV2$drainage #only RHEIN remains
+length(unique(ENV2$locality)) #should be 365
 ENV2$distance_to_outlet[ENV2$locality==521174] #value of dist.to.outlet for locality 521174 before re-ordering
 ENV2 = ENV2[match(loc.rhine,ENV2$locality),] #re-order to match with locality order of network metrics
 ENV2$distance_to_outlet[ENV2$locality==521174] #should be same value if re-ordering worked properly
-
+ENV2= droplevels(ENV2)
 
 #########################################################################
 ################# Merge data
@@ -124,15 +134,21 @@ head(ENV2$locality) #order in which ENV data is
 #Merge together
 ##################
 rivnet = as.data.frame(cbind(ENV2,net.met))
+row.names(rivnet) = 1:365
 rm(net.met)
+length(unique(rivnet$locality)) #should be 365
+
 
 #########################################################################
 ################# Species abundance data
 #########################################################################
 
 AB = AB[which(AB$locality %in% loc.rhine),] #select only sites from the RHEIN 
+length(unique(AB$locality)) #should be 365
 AB$drainage #only RHEIN remains
-
+AB = AB[-which(is.na(AB$species)),] #remove species with name "NA"(all EPT species) (to avoid issues below) - only three
+AB = AB[-which(AB$species == "Rhyacophila_pubescens"),] #This species is not present in EPT_SP 
+AB = droplevels(AB) #drop unused level
 
 #########################################################################
 ################# Functional groups
@@ -163,6 +179,10 @@ for(i in 1:nrow(AB)){
 #Verify that the loop worked properly 
 ##################
 
+#The sum of columns 14:23 should be 10
+summary(rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23]))
+which(rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23])==0)
+
 #pick random species from this list
 AB$species[which(AB$IBCH_EPT=="EPT")]
 
@@ -189,9 +209,23 @@ for(i in 1:nrow(AB)){
 plot(AB$nr_ind[which(AB$IBCH_EPT=="EPT")] ~ rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23]),xlim=c(0,100),ylim=c(0,100))
 #the plot should basically be a relationship one to one if the distribution among each functional group was well done
 
-min(rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23])) ##YOU SHOULD NOT HAVE ZEROS
-min(AB$nr_ind[which(AB$IBCH_EPT=="EPT")]) #since the min here is 1 
-#AFTER VERIFICATION IT SEEMS TAHT SOME SPECIES IN THE EPT DATA HAVE "NA" - NEED TO BE REMOVED VERY FEW OF THEM! 
+##################
+#Calculate relative abundance of each functional group per site 
+##################
+
+
+lala = matrix(0,nrow=365,ncol=10)
+colnames(lala) = colnames(AB)[14:23]
+for(i in 14:23){
+  lala[,i-13] = tapply(AB[which(AB$IBCH_EPT=="EPT"),i],AB$locality[which(AB$IBCH_EPT=="EPT")],sum)
+  
+}
+
+test = tapply(AB[which(AB$IBCH_EPT=="EPT"),i],AB$locality[which(AB$IBCH_EPT=="EPT")],sum)
+
+length(unique(AB$locality[which(AB$IBCH_EPT=="EPT")]))
+
+?tapply()
 
 #########################################################################
 ################# Diversity
@@ -200,67 +234,54 @@ min(AB$nr_ind[which(AB$IBCH_EPT=="EPT")]) #since the min here is 1
 #I think here below might be working by using loc.rhine as a reference - need to think about it more
 #diversity
 alpha_all <- 0
-for(i in 1:394){
+for(i in 1:365){
   alpha_all[i] <- length(AB$species[which(AB$locality==loc.rhine[i])])}
 
 #Number of species EPT only
 alpha_EPT <- 0
-for(i in 1:394){
+for(i in 1:365){
   alpha_EPT[i] <- length(unique(AB$species[which(AB$locality==loc.rhine[i] & AB$IBCH_EPT=="EPT")]))}	
 
 #alpha_fam gives number of families per location (IBCH and EPT)
 alpha_fam <- NA
-for(i in 1:394){
+for(i in 1:365){
   alpha_fam[i] <- length(unique(AB$family[which(AB$locality==loc.rhine[i])]))}
 
 #density Gammarids per location
 n_Gammarids <- NA
-for(i in 1:394){
+for(i in 1:365){
   n_Gammarids[i] <- sum(AB$nr_ind[which(AB$locality==loc.rhine[i] & AB$family=="Gammaridae")], na.rm=TRUE)}
 
 
-##Need to correct for the fact that all the zeros are false zero (because they were simply not sampled)
-data1 = data.frame(alpha_all,alpha_EPT,alpha_fam,DEG,BETW,CENT,ENV2)
-data1 = data1[which(alpha_all!=0),]
+#plots
 
-
-plot(density(data1$alpha_all))
-plot(data1$alpha_all ~data1$DEG)
-plot(alpha_all ~ BETW,data=data1)
-plot(alpha_all ~ CENT,data=data1)
-plot(alpha_all ~ distance_to_outlet,data=data1)
-plot(alpha_all ~ masl,data=data1)
-plot(alpha_all ~ ENV2$Strahler_order)
-plot(alpha_all ~ ENV2$Agriculture_prop_5km)
-plot(alpha_all ~ ENV2$Woods_prop_5km)
+plot(density(alpha_all))
+plot(alpha_all ~ )
+plot(alpha_all ~ log(BETW))
+plot(alpha_all ~ CENT)
+plot(alpha_all ~ rivnet$distance_to_outlet)
+plot(alpha_all ~ rivnet$masl)
+plot(alpha_all ~ rivnet$Strahler_order)
+plot(alpha_all ~ rivnet$Agriculture_prop_5km)
+plot(alpha_all ~ rivnet$Woods_prop_5km)
 
 plot(density(alpha_fam))
-plot(alpha_fam ~ DEG,data=data1)
-plot(alpha_fam ~ BETW,data=data1)
-plot(alpha_fam ~ CENT,data=data1)
-plot(alpha_fam ~ ENV2$distance_to_outlet)
-plot(alpha_fam ~ ENV2$masl)
-plot(alpha_fam ~ ENV2$Strahler_order)
-plot(alpha_fam ~ ENV2$Agriculture_prop_5km)
-plot(alpha_fam ~ ENV2$Woods_prop_5km)
+plot(alpha_fam ~ DEG)
+plot(alpha_fam ~ log(BETW))
+plot(alpha_fam ~ CENT)
+plot(alpha_fam ~ rivnet$distance_to_outlet)
+plot(alpha_fam ~ rivnet$masl)
+plot(alpha_fam ~ rivnet$Strahler_order)
+plot(alpha_fam ~ rivnet$Agriculture_prop_5km)
+plot(alpha_fam ~ rivnet$Woods_prop_5km)
 
 plot(density(alpha_EPT))
 plot(alpha_EPT ~ DEG)
-plot(alpha_EPT ~ BETW)
-plot(alpha_EPT ~ DIAM)
+plot(alpha_EPT ~ log(BETW))
 plot(alpha_EPT ~ CENT)
-plot(alpha_EPT ~ ENV2$distance_to_outlet)
-plot(alpha_EPT ~ ENV2$Woods_prop_500m)
-plot(alpha_EPT ~ ENV2$Woods_prop_5km)
-plot(alpha_EPT ~ ENV2$masl)
-
-
-plot(n_Gammarids ~ ENV2$masl)
-
-
-
-
-
-
+plot(alpha_EPT ~ rivnet$distance_to_outlet)
+plot(alpha_EPT ~ rivnet$Woods_prop_500m)
+plot(alpha_EPT ~ rivnet$Woods_prop_5km)
+plot(alpha_EPT ~ rivnet$masl)
 
 ####END #######
