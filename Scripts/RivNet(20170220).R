@@ -59,6 +59,13 @@ missing = LOC$locality[which(match4==0)] #identify which localities are missing 
 LOC = LOC[-which(LOC$locality %in% missing),] #remove them from LOC dataset
 ENV = ENV[-which(ENV$locality %in% missing),] #remove them from ENV dataset
 
+#8 localities that were sampled for EPT where not sampled for IBCH and vice versa
+loc.sel = AB$locality[which(AB$IBCH_EPT=="EPT")] #identify sites for EPT
+
+LOC = LOC[which(LOC$locality %in% loc.sel),] #keep only these EPT localities
+ENV = ENV[which(ENV$locality %in% loc.sel),] #keep only these EPT localities
+AB = AB[which(AB$locality %in% loc.sel),] # keep only these EPT localities
+
 rm(match1);rm(match2);rm(match3);rm(match4)
 #########################################################################
 ################# NETWORK METRICS
@@ -78,11 +85,10 @@ for (i in 1:length(V(SUBGRAPH2)$name)){
     V(SUBGRAPH2)$name[i] <- LOC$locality[x]
 }
 
-#This should be 365 sites
+#This should be 359 sites
 length(unique(sub <- which(V(SUBGRAPH2)$name %in% LOC$locality)))
 
 loc.rhine = V(SUBGRAPH2)$name[sub] #Extract the names and order of the localities 
-
 
 ##################
 #plot the network (not very useful)
@@ -106,7 +112,7 @@ plot(density(DIAM))
 
 net.met = cbind(BETW,DEG,CENT)
 rm(BETW);rm(DEG);rm(CENT)
-
+detach("package:igraph", unload=TRUE)
 
 #########################################################################
 ################# Environmental variables
@@ -114,7 +120,7 @@ rm(BETW);rm(DEG);rm(CENT)
 
 ENV2 = ENV[which(ENV$locality %in% loc.rhine),] #Select only site from the RHIN 
 ENV2$drainage #only RHEIN remains
-length(unique(ENV2$locality)) #should be 365
+length(unique(ENV2$locality)) #should be 359
 ENV2$distance_to_outlet[ENV2$locality==521174] #value of dist.to.outlet for locality 521174 before re-ordering
 ENV2 = ENV2[match(loc.rhine,ENV2$locality),] #re-order to match with locality order of network metrics
 ENV2$distance_to_outlet[ENV2$locality==521174] #should be same value if re-ordering worked properly
@@ -134,9 +140,9 @@ head(ENV2$locality) #order in which ENV data is
 #Merge together
 ##################
 rivnet = as.data.frame(cbind(ENV2,net.met))
-row.names(rivnet) = 1:365
+row.names(rivnet) = 1:359
 rm(net.met)
-length(unique(rivnet$locality)) #should be 365
+length(unique(rivnet$locality)) #should be 359
 
 
 #########################################################################
@@ -144,7 +150,7 @@ length(unique(rivnet$locality)) #should be 365
 #########################################################################
 
 AB = AB[which(AB$locality %in% loc.rhine),] #select only sites from the RHEIN 
-length(unique(AB$locality)) #should be 365
+length(unique(AB$locality)) #should be 359
 AB$drainage #only RHEIN remains
 AB = AB[-which(is.na(AB$species)),] #remove species with name "NA"(all EPT species) (to avoid issues below) - only three
 AB = AB[-which(AB$species == "Rhyacophila_pubescens"),] #This species is not present in EPT_SP 
@@ -214,18 +220,26 @@ plot(AB$nr_ind[which(AB$IBCH_EPT=="EPT")] ~ rowSums(AB[which(AB$IBCH_EPT=="EPT")
 ##################
 
 
-lala = matrix(0,nrow=365,ncol=10)
-colnames(lala) = colnames(AB)[14:23]
+fun.mat = matrix(0,nrow=359,ncol=10)
+colnames(fun.mat) = colnames(AB)[14:23]
+row.names(fun.mat) = rivnet$locality
 for(i in 14:23){
-  lala[,i-13] = tapply(AB[which(AB$IBCH_EPT=="EPT"),i],AB$locality[which(AB$IBCH_EPT=="EPT")],sum)
+  fun.mat[,i-13] = tapply(AB[which(AB$IBCH_EPT=="EPT"),i],AB$locality[which(AB$IBCH_EPT=="EPT")],sum)
   
 }
 
-test = tapply(AB[which(AB$IBCH_EPT=="EPT"),i],AB$locality[which(AB$IBCH_EPT=="EPT")],sum)
+#Standardize to row = 1
 
-length(unique(AB$locality[which(AB$IBCH_EPT=="EPT")]))
+fun.mat.stand = fun.mat/rowSums(fun.mat)
 
-?tapply()
+##################
+#Analysis and figures 
+##################
+
+
+
+
+
 
 #########################################################################
 ################# Diversity
