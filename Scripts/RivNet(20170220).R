@@ -112,7 +112,7 @@ plot(density(DIAM))
 
 net.met = cbind(BETW,DEG,CENT)
 rm(BETW);rm(DEG);rm(CENT)
-detach("package:igraph", unload=TRUE)
+
 
 #########################################################################
 ################# Environmental variables
@@ -136,6 +136,7 @@ ENV2= droplevels(ENV2)
 head(V(SUBGRAPH2)$name[sub]) #order in which the network metrics are
 head(ENV2$locality) #order in which ENV data is
 
+detach("package:igraph", unload=TRUE)
 ##################
 #Merge together
 ##################
@@ -232,13 +233,70 @@ for(i in 14:23){
 
 fun.mat.stand = fun.mat/rowSums(fun.mat)
 
+
+
 ##################
-#Analysis and figures 
+#Figures 
 ##################
 
+#Stacked figures
+#reshaphe in long format
+library(reshape2)
+rivnet2 = as.data.frame(cbind(rivnet[,c(1,7,11,12,37,48)],fun.mat.stand))
+
+rivnet.long = melt(rivnet2,id.vars=c("locality","masl","Strahler_order","distance_to_outlet","Woods_prop_500m","Woods_prop_5km"))
+
+detach("package:reshape2", unload=TRUE)
+
+#Plot stacked figures
+library(ggplot2)
+ggplot(rivnet.long, aes(x=distance_to_outlet, y=value, fill=variable)) +
+  geom_area(colour="black", size=.2, alpha=.4) 
+  #scale_fill_brewer(palette="Blues", breaks=rev(levels(test1$variable)))
+
+ggplot(rivnet.long, aes(x=Woods_prop_500m, y=value, fill=variable)) +
+  geom_area(colour="black", size=.2, alpha=.4) 
+
+ggplot(rivnet.long, aes(x=Woods_prop_5km, y=value, fill=variable)) +
+  geom_area(colour="black", size=.2, alpha=.4) 
+
+ggplot(rivnet.long, aes(x=masl, y=value, fill=variable)) +
+  geom_area(colour="black", size=.2, alpha=.4)
+
+#many sites have the same values for masl, woods_prop_5km and woods_prop_500m
+
+detach("package:ggplot2", unload=TRUE)
 
 
+##################
+#PERMNANOVA
+##################
 
+#generate distance matrice emphasizing differences in proportions (according to Anderson et al., 2011)
+library(vegan)
+
+dist.mat= vegdist(decostand(fun.mat.stand,"hell"),"euclidean")
+
+
+dist.mod = adonis(dist.mat ~ rivnet$masl + rivnet$Strahler_order + rivnet$CENT + rivnet$distance_to_outlet + rivnet$Woods_prop_500m + rivnet$Woods_prop_5km,permutations=9999)
+dist.mod
+
+# Number of permutations: 9999
+# 
+# Terms added sequentially (first to last)
+# 
+#                            Df SumsOfSqs  MeanSqs F.Model      R2 Pr(>F)
+# rivnet$masl                 1    0.1291 0.129086 1.86407 0.00520 0.1174
+# rivnet$Strahler_order       1    0.1068 0.106789 1.54209 0.00430 0.1756
+# rivnet$CENT                 1    0.0212 0.021233 0.30662 0.00086 0.8894
+# rivnet$distance_to_outlet   1    0.0892 0.089204 1.28816 0.00360 0.2580
+# rivnet$Woods_prop_500m      1    0.0421 0.042098 0.60792 0.00170 0.6467
+# rivnet$Woods_prop_5km       1    0.0427 0.042667 0.61614 0.00172 0.6280
+# Residuals                 352   24.3759 0.069250         0.98262       
+# Total                     358   24.8069                  1.00000   
+
+
+detach("package:vegan", unload=TRUE)
 
 
 #########################################################################
