@@ -16,7 +16,7 @@ rm(list=ls())
 #########################################################################
 
 ##################
-#Libraries and functions
+#Library 
 ##################
 library(igraph)
 
@@ -35,8 +35,8 @@ LOC <- read.csv(paste0(Dat,"EPT_IBCH_Localities_EZGNR.csv"), header=T, sep=",", 
 LOC$locality <- as.integer(gsub(',', '', LOC$locality)) #sampling location for BDM sampling
 LOC$EZGNR <- as.integer(gsub(',', '', LOC$EZGNR)) #subcatchment names in the RHINE network that were also sampled by BDM
 AB <- read.table(paste0(Dat,"EPT_IBCH_Data20150826.txt"), header=T) #Abundance data per species per sampling
-EPT_SP <- read.table(paste0(Dat,"EPT_SPECIES_20170309.txt"), header=TRUE) #EPT species functional groups
-IBCH_SP <- read.delim(paste0(Dat,"IBCH_SPECIES_20170309.txt"), header=T) #IBCH species functional groups
+EPT_SP <- read.table(paste0(Dat,"EPT_SPECIES_20170315.txt"), header=TRUE) #EPT species functional groups
+IBCH_SP <- read.table(paste0(Dat,"IBCH_SPECIES_20170315.txt"), header=T) #IBCH species functional groups
 ENV <- read.table(paste0(Dat,"EPT_IBCH_Localities20150826.txt"), header=T) #ENV data per locality
 
 
@@ -53,15 +53,6 @@ loc.missing = LOC$locality[which(match4==0)] #identify which localities are miss
 #Extract those localities from the datasets 
 LOC = LOC[-which(LOC$locality %in% loc.missing),] #remove them from LOC dataset
 ENV = ENV[-which(ENV$locality %in% loc.missing),] #remove them from ENV dataset
-
-####
-# Some families from IBCH abundance data are not present in IBCH_SP file (no information on them - 7 families)
-AB.sub = AB[which(AB$IBCH_EPT=="IBCH"),]
-match5 = match(AB.sub$family,IBCH_SP$family,0)
-fam.missing = unique(AB.sub$family[which(match5==0)])
-fam.missing #all of them have only one occurence in the dataset
-#remove them form abundance data
-AB = AB[-which(AB$family %in% fam.missing),]
 
 ####
 # Several localities (38 total) were sampled for IBCH but not for EPT and vice versa - solve problem by removing them altogether
@@ -117,12 +108,15 @@ loc.rhine = V(SUBGRAPH2)$name[sub] #Extract the names and order of the localitie
 #Calculate network metrics for the whole network and then extract the values only for the nodes corresponding to BDM sampled sites
 ##################
 
-BETW <- betweenness(SUBGRAPH2, v=V(SUBGRAPH2)[sub])
+
+BETW <- log(betweenness(SUBGRAPH2, v=V(SUBGRAPH2)[sub])+1)
 DEG  <- degree(SUBGRAPH2, v=V(SUBGRAPH2)[sub]) #number of adjacent edges to a vertex
 CENT  <- closeness(SUBGRAPH2, vids=V(SUBGRAPH2)[sub],mode="out") #how many steps is required to access every other vertex from a given vertex
 
-summary(CENT)
-hist(CENT)
+net.dist = distances(SUBGRAPH2, v=V(SUBGRAPH2)[sub], to=V(SUBGRAPH2)[sub])
+
+summary(BETW)
+hist(BETW)
 plot(density(CENT))
 
 net.met = cbind(BETW,DEG,CENT)
@@ -169,9 +163,8 @@ length(unique(rivnet$locality)) #should be 358
 ##Species abundance dataset
 AB = AB[which(AB$locality %in% loc.rhine),] #select only sites from the RHEIN 
 length(unique(AB$locality)) #should be 358
-AB = AB[-which(is.na(AB$species)),] #remove species with name "NA"(all EPT species) (to avoid issues below) - only three
+AB = AB[-which(is.na(AB$species)),] #remove species with name "NA"(3 EPT species) (to avoid issues below) - only three
 AB$drainage #only RHEIN remains
-AB = AB[-which(AB$species == "Rhyacophila_pubescens"),] #This species is not present in EPT_SP 
 AB = droplevels(AB) #drop unused level
 
 #########################################################################
@@ -211,7 +204,7 @@ summary(rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23])) # Good
 summary(rowSums(AB[which(AB$IBCH_EPT=="IBCH"),14:23])) # not good
 miss.fam = unique(AB$family[which(rowSums(AB[,14:23])==0)]) 
 miss.fam
-#all are the families for which we yet don't have info (waiting for it)
+#2 families for which we could not informaiton and experts did not know
 AB = AB[-which(AB$family %in% miss.fam),] #Remove them for now 
 summary(rowSums(AB[which(AB$IBCH_EPT=="IBCH"),14:23])) # good! 
 
@@ -234,7 +227,7 @@ AB.fun = AB
 #First: Convert functional group columns into relative proportions (sum = 1 instead of 10 as it is now) 
 AB.fun[,14:23] = AB.fun[,14:23]/10
 
-# #Second: Divide columns nr_ind by each functional group columns 
+# #Second: Divide columns nr_ind by each functional group columns
 # for(i in 1:nrow(AB.fun)){
 #   for(j in 14:23) {
 #     if(AB.fun[i,j]!=0) AB.fun[i,j] = AB.fun$nr_ind[i]*AB.fun[i,j]
@@ -256,8 +249,6 @@ for(i in 1:nrow(AB.fun)){
 #Third: verify that it worked well 
 plot(AB.fun$nr_ind ~ rowSums(AB.fun[,14:23]),xlim=c(0,100),ylim=c(0,100))
 #the plot should basically be a relationship one to one if the distribution among each functional group was well done
-
-
 
 ##################
 #Calculate relative abundance of each functional group per site 
@@ -286,15 +277,18 @@ fun.mat.EPT.stand = fun.mat.EPT/rowSums(fun.mat.EPT)
 
 fun.mat.IBCH.stand = fun.mat.IBCH/rowSums(fun.mat.IBCH)
 
-
 rowSums(fun.mat.EPT.stand) #should all be one
 
 rowSums(fun.mat.IBCH.stand) 
 
 #Some groups are absent or not enough data 
-summary(fun.mat.IBCH.stand) #remove miner, GAC, AFF, PA, and OTHER
-fun.mat.IBCH.stand = fun.mat.IBCH.stand[,-c(2,5,6,9,10)]
-fun.mat.EPT.stand = fun.mat.EPT.stand[,-c(2,5,6,9,10)]
+summary(fun.mat.IBCH.stand) #remove miner, aff and Other (medians are 0)
+fun.mat.IBCH = fun.mat.IBCH[,-c(2,6,10)]
+fun.mat.IBCH.stand = fun.mat.IBCH.stand[,-c(2,6,10)]
+
+summary(fun.mat.EPT.stand) #remove miner, xylophagous, aff, parasite and other (medians are 0)
+fun.mat.EPT = fun.mat.EPT[,-c(2,3,6,9,10)]
+fun.mat.EPT.stand = fun.mat.EPT.stand[,-c(2,3,6,9,10)]
 
 #WARNING: locality order in fun.mat and fun.mat.stand is now in numerical order from smallest to largest (tapply does that)
 #very important to re-order rivnet dataset BEFORE any FURTHER ANALYSES OR FIGURES
@@ -302,7 +296,7 @@ fun.mat.EPT.stand = fun.mat.EPT.stand[,-c(2,5,6,9,10)]
 rivnet = rivnet[order(rivnet$locality),]
 AB.fun = AB.fun[order(AB.fun$locality),]
 head(rivnet$locality)
-head(AB.fun$locality)
+head(unique(AB.fun$locality))
 head(tapply(AB.fun[which(AB.fun$IBCH_EPT=="IBCH"),14],AB.fun$locality[which(AB.fun$IBCH_EPT=="IBCH")],sum))
 #verify that they are exactly the localities
 min(match(row.names(tapply(AB.fun[which(AB.fun$IBCH_EPT=="EPT"),14],AB.fun$locality[which(AB.fun$IBCH_EPT=="EPT")],sum)),rivnet$locality,0))
@@ -316,7 +310,7 @@ min(match(rivnet$locality,row.names(tapply(AB.fun[which(AB.fun$IBCH_EPT=="EPT"),
 #need to make sure that all datasets used are in the same order!! 
 loc.rhine.ord = loc.rhine[order(loc.rhine)]
 head(loc.rhine.ord)
-head(AB.fun$locality)
+head(unique(AB.fun$locality))
 head(rivnet$locality)
 
 rivnet$alpha_all <- 0
@@ -337,6 +331,124 @@ for(i in 1:358){
 #########################################################################
 ################# FIGURES AND ANALYSES
 #########################################################################
+
+
+##################
+#Libraries
+##################
+library(vegan)
+library(packfor)
+
+##################
+#Extract dissimilarity matrices
+##################
+
+#Changes in relative proportion
+dist.EPT.mat.prop = vegdist(decostand(fun.mat.EPT.stand,"hell"),"euclidean")
+dist.IBCH.mat.prop = vegdist(decostand(fun.mat.IBCH.stand,"hell"),"euclidean")
+#Changes in absolute composition and abundances
+dist.EPT.mat.bray= vegdist(decostand(fun.mat.EPT,"hell"),"bray")
+dist.IBCH.mat.bray= vegdist(decostand(fun.mat.IBCH,"hell"),"bray")
+#Null expectation after controlling for alpha diversity
+dist.EPT.mat.null= vegdist(decostand(fun.mat.EPT,"hell"),"raup")
+dist.IBCH.mat.null= vegdist(decostand(fun.mat.IBCH,"hell"),"raup")
+
+##################
+#MANTEL
+##################
+xy.dist = vegdist(cbind(rivnet$xkoord,rivnet$ykoord),"euclidean") #Geographical distance
+#net.dist #distance along network
+
+#all significant
+mantel(dist.IBCH.mat.prop,xy.dist)
+mantel(dist.IBCH.mat.bray,xy.dist)
+mantel(dist.IBCH.mat.null,xy.dist)
+mantel(dist.EPT.mat.prop,xy.dist)
+mantel(dist.EPT.mat.bray,xy.dist)
+mantel(dist.EPT.mat.null,xy.dist)
+
+#none significant
+mantel(dist.IBCH.mat.prop,net.dist)
+mantel(dist.IBCH.mat.bray,net.dist)
+mantel(dist.IBCH.mat.null,net.dist)
+mantel(dist.EPT.mat.prop,net.dist)
+mantel(dist.EPT.mat.bray,net.dist)
+mantel(dist.EPT.mat.null,net.dist)
+
+##################
+#FORWARD VARIABLE SELECTION
+##################
+
+#because we have many variables - we will use a permutation approach to select only the most important
+#to add into the PERMANOVA
+
+#Forward selection by permutation to reduce the number of variables 
+var.sel = cbind(rivnet[,c(7,12,36:76)])
+
+sel.mod.IBCH.prop = forward.sel(fun.mat.IBCH.stand,var.sel)
+sel.mod.IBCH.prop
+
+# variables order          R2     R2Cum  AdjR2Cum         F  pval
+# 1                  masl     1 0.144809231 0.1448092 0.1424070 60.281387 0.001
+# 2                  BETW    38 0.027034951 0.1718442 0.1671785 11.588891 0.001
+# 3     Meadows_prop_10km    22 0.020681718 0.1925259 0.1856829  9.066951 0.001
+# 4             alpha_EPT    42 0.012684051 0.2052099 0.1962038  5.633525 0.002
+# 5      Woods_prop_100km    27 0.008317086 0.2135270 0.2023555  3.722460 0.007
+# 6     Woods_prop_1000km    33 0.009148570 0.2226756 0.2093880  4.131027 0.019
+# 7 Agriculture_prop_10km    20 0.006671234 0.2293468 0.2139338  3.029809 0.023
+
+
+sel.mod.EPT.prop = forward.sel(fun.mat.EPT.stand,var.sel)
+sel.mod.EPT.prop
+
+# variables order          R2      R2Cum   AdjR2Cum         F  pval
+# 1  Agriculture_prop_1km     8 0.053684899 0.05368490 0.05102671 20.196047 0.001
+# 2             alpha_EPT    42 0.039468351 0.09315325 0.08804425 15.450532 0.001
+# 3                  CENT    40 0.019516819 0.11267007 0.10515032  7.786229 0.002
+# 4  Settlement_prop_500m     6 0.014644245 0.12731431 0.11742552  5.923574 0.004
+# 5        Woods_prop_5km    15 0.009733262 0.13704758 0.12478973  3.970217 0.023
+# 6 Agriculture_prop_10km    20 0.008534263 0.14558184 0.13097640  3.505926 0.032
+# 7     Meadows_prop_500m     5 0.008480709 0.15406255 0.13714380  3.508827 0.024
+
+##################
+#PERMNANOVA
+##################
+
+dist.mod.IBCH = adonis(dist.IBCH.mat.prop ~., rivnet[,sel.mod.IBCH.prop$variables],permutations=999)
+dist.mod.IBCH
+
+# Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
+# masl                    1    23.160 23.1596  98.831 0.19933  0.001 ***
+#   BETW                    1     2.558  2.5583  10.917 0.02202  0.001 ***
+#   Meadows_prop_10km       1     2.553  2.5526  10.893 0.02197  0.001 ***
+#   alpha_EPT               1     3.392  3.3924  14.477 0.02920  0.001 ***
+#   Woods_prop_100km        1     0.723  0.7231   3.086 0.00622  0.023 *  
+#   Woods_prop_1000km       1     0.585  0.5846   2.495 0.00503  0.024 *  
+#   Agriculture_prop_10km   1     1.201  1.2014   5.127 0.01034  0.008 ** 
+#   Residuals             350    82.017  0.2343         0.70589           
+# Total                 357   116.189                 1.00000 
+
+
+masl.dist = vegdist(rivnet$masl,"euclidean")
+
+plot(dist.IBCH.mat.prop ~ masl.dist)
+mantel(dist.IBCH.mat.prop,masl.dist)
+
+dist.mod.EPT = adonis(dist.EPT.mat.prop ~., rivnet[,sel.mod.EPT.prop$variables],permutations=999)
+dist.mod.EPT
+
+# Df SumsOfSqs MeanSqs F.Model      R2 Pr(>F)    
+# rivnet$Agriculture_prop_1km    1     3.111  3.1106  24.569 0.05690  0.001 ***
+#   rivnet$CENT                    1     0.846  0.8462   6.684 0.01548  0.002 ** 
+#   rivnet$Settlement_prop_500m    1     0.984  0.9842   7.774 0.01800  0.001 ***
+#   rivnet$Woods_prop_5km          1     0.297  0.2968   2.344 0.00543  0.059 .  
+# rivnet$Agriculture_prop_10km   1     0.404  0.4036   3.188 0.00738  0.026 *  
+#   rivnet$Meadows_prop_500m       1     0.331  0.3312   2.616 0.00606  0.042 *  
+#   rivnet$alpha_EPT               1     4.381  4.3806  34.600 0.08013  0.001 ***
+#   Residuals                    350    44.312  0.1266         0.81061           
+# Total                        357    54.665                 1.00000 
+
+
 
 ##################
 #Figures 
@@ -379,29 +491,70 @@ for(i in 1:358){
 ##Scatter plots
 
 #Select variables to plot
-var.sel = rivnet[,c(7,12,36:40,71:72)]
+var.sel.m = rivnet[,c(7,12,36:40,71:72)]
 var.sel.km = rivnet[,c(7,12,41:45,71:72)]
+var.sel.IBCH = rivnet[,sel.mod.IBCH.prop$variables]
+var.sel.EPT = rivnet[,sel.mod.EPT.prop$variables]
 
-#IBCH
+#IBCH - 1km scale
 pdf(paste0(fig.p,"IBCH_fun_1km.pdf"), width=8, height=8)
 
 for(i in 1:ncol(fun.mat.IBCH.stand)) {
-  for(j in 1:ncol(var.sel)) {
+  for(j in 1:ncol(var.sel.km)) {
     
-    plot(fun.mat.IBCH.stand[,i] ~ var.sel[,j],pch=16,ylab=paste(colnames(fun.mat.IBCH.stand)[i],"prop"),xlab=colnames(var.sel)[j])
+    plot(fun.mat.IBCH.stand[,i] ~ var.sel.km[,j],pch=16,ylab=paste(colnames(fun.mat.IBCH.stand)[i],"prop"),xlab=colnames(var.sel.km)[j])
     
   }
 }
 
 dev.off()
 
-#EPT
+#IBCH - 500 meters scale
+pdf(paste0(fig.p,"IBCH_fun_500m.pdf"), width=8, height=8)
+
+for(i in 1:ncol(fun.mat.IBCH.stand)) {
+  for(j in 1:ncol(var.sel.m)) {
+    
+    plot(fun.mat.IBCH.stand[,i] ~ var.sel.m[,j],pch=16,ylab=paste(colnames(fun.mat.IBCH.stand)[i],"prop"),xlab=colnames(var.sel.m)[j])
+    
+  }
+}
+
+dev.off()
+
+#IBCH - Variables from PERMANOVA
+pdf(paste0(fig.p,"IBCH_fun_SELECTED.pdf"), width=8, height=8)
+
+for(i in 1:ncol(var.sel.IBCH)) {
+  for(j in 1:ncol(fun.mat.IBCH.stand)) {
+    
+    plot(fun.mat.IBCH.stand[,j] ~ var.sel.IBCH[,i],pch=16,ylab=paste(colnames(fun.mat.IBCH.stand)[j],"prop"),xlab=colnames(var.sel.IBCH)[i])
+    
+  }
+}
+
+dev.off()
+
+#EPT - 1km scale
 pdf(paste0(fig.p,"EPT_fun_1km.pdf"), width=8, height=8)
 
 for(i in 1:ncol(fun.mat.EPT.stand)) {
-  for(j in 1:ncol(var.sel)) {
+  for(j in 1:ncol(var.sel.km)) {
     
-    plot(fun.mat.EPT.stand[,i] ~ var.sel[,j],pch=16,ylab=paste(colnames(fun.mat.EPT.stand)[i],"prop"),xlab=colnames(var.sel)[j])
+    plot(fun.mat.EPT.stand[,i] ~ var.sel.km[,j],pch=16,ylab=paste(colnames(fun.mat.EPT.stand)[i],"prop"),xlab=colnames(var.sel.km)[j])
+    
+  }
+}
+
+dev.off()
+
+#EPT - 500 meters scale
+pdf(paste0(fig.p,"EPT_fun_500m.pdf"), width=8, height=8)
+
+for(i in 1:ncol(fun.mat.EPT.stand)) {
+  for(j in 1:ncol(var.sel.m)) {
+    
+    plot(fun.mat.EPT.stand[,i] ~ var.sel.m[,j],pch=16,ylab=paste(colnames(fun.mat.EPT.stand)[i],"prop"),xlab=colnames(var.sel.m)[j])
     
   }
 }
@@ -409,55 +562,20 @@ for(i in 1:ncol(fun.mat.EPT.stand)) {
 dev.off()
 
 
+#EPT - PERMANOVA VARIABLES
+pdf(paste0(fig.p,"EPT_fun_SELECTED.pdf"), width=8, height=8)
 
-##################
-#PERMNANOVA
-##################
+for(i in 1:ncol(var.sel.EPT)) {
+  for(j in 1:ncol(fun.mat.EPT.stand)) {
+    
+    plot(fun.mat.EPT.stand[,j] ~ var.sel.EPT[,i],pch=16,ylab=paste(colnames(fun.mat.EPT.stand)[j],"prop"),xlab=colnames(var.sel.EPT)[i])
+    
+  }
+}
 
-
-#generate distance matrice emphasizing differences in proportions (according to Anderson et al., 2011)
-library(vegan)
-
-dist.EPT.mat= vegdist(decostand(fun.mat.EPT.stand,"hell"),"euclidean")
-
-dist.IBCH.mat= vegdist(decostand(fun.mat.IBCH.stand,"hell"),"euclidean")
-
-
-dist.mod.IBCH = adonis(dist.IBCH.mat ~ rivnet$masl + rivnet$Agriculture_prop_5km + rivnet$Woods_prop_5km + rivnet$Water_prop_500m  + decostand(rivnet$BETW,"log") + rivnet$CENT + rivnet$DEG + rivnet$distance_to_outlet + rivnet$alpha_fam,permutations=999)
-dist.mod.IBCH
-
-
-#                                 Df SumsOfSqs MeanSqs F.Model R2     Pr(>F)    
-# rivnet$masl                     1    30.034 30.0343 139.095 0.26230  0.001 ***
-#   rivnet$Agriculture_prop_5km     1     2.330  2.3301  10.791 0.02035  0.001 ***
-#   rivnet$Woods_prop_5km           1     2.161  2.1614  10.010 0.01888  0.001 ***
-#   rivnet$Water_prop_500m          1     0.310  0.3095   1.433 0.00270  0.224    
-# decostand(rivnet$BETW, "log")   1     1.749  1.7491   8.100 0.01528  0.003 ** 
-#   rivnet$CENT                     1     0.501  0.5013   2.321 0.00438  0.085 .  
-# rivnet$DEG                      1     0.178  0.1778   0.823 0.00155  0.457    
-# rivnet$distance_to_outlet       1     1.000  0.9999   4.631 0.00873  0.012 *  
-#   rivnet$alpha_fam                1     1.099  1.0994   5.092 0.00960  0.008 ** 
-#   Residuals                     348    75.142  0.2159         0.65624           
-# Total                         357   114.505                 1.00000     
-
-
-dist.mod.EPT = adonis(dist.EPT.mat ~  rivnet$Woods_prop_500m + rivnet$Woods_prop_5km + rivnet$masl + rivnet$Settlement_prop_500m + decostand(rivnet$BETW,"log") + rivnet$CENT + rivnet$DEG + rivnet$distance_to_outlet + rivnet$alpha_EPT,permutations=999)
-dist.mod.EPT
-
-#                                 Df SumsOfSqs MeanSqs F.Model   R2 Pr(>F)    
-# rivnet$Woods_prop_500m          1     0.445  0.4445   4.218 0.00984  0.021 *  
-#   rivnet$Woods_prop_5km           1     0.213  0.2133   2.024 0.00472  0.106    
-# rivnet$masl                     1     3.955  3.9545  37.527 0.08757  0.001 ***
-#   rivnet$Settlement_prop_500m     1     0.485  0.4846   4.599 0.01073  0.010 ** 
-#   decostand(rivnet$BETW, "log")   1     0.157  0.1571   1.491 0.00348  0.186    
-# rivnet$CENT                     1     0.131  0.1311   1.244 0.00290  0.288    
-# rivnet$DEG                      1     0.143  0.1432   1.359 0.00317  0.218    
-# rivnet$distance_to_outlet       1     0.138  0.1377   1.307 0.00305  0.261    
-# rivnet$alpha_EPT                1     2.823  2.8226  26.786 0.06250  0.001 ***
-#   Residuals                     348    36.671  0.1054         0.81203           
-# Total                         357    45.160                 1.00000                 
-
+dev.off()
 
 detach("package:vegan", unload=TRUE)
+detach("package:packfor", unload=TRUE)
 
 ####END #######
