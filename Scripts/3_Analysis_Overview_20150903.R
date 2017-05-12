@@ -6,12 +6,12 @@ library(vegan)
 library(maps)
 library(mapproj)
 library(mapdata)
-source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/floating.pieF.R")
-source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/scale_bar.R")
-source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/drop.levels.R")
-source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/errbar_color.R")
-source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/slope.test.R")
-source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/river_plot.R")
+source("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Scripts/floating.pieF.R")
+source("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Scripts/scale_bar.R")
+source("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Scripts/drop.levels.R")
+source("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Scripts/errbar_color.R")
+source("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Scripts/slope.test.R")
+source("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Scripts/river_plot.R")
 
 #########################################################################
 # DATA ENTRY EPT BDM
@@ -19,7 +19,7 @@ source("~/Documents/Research/Eawag/Projects/12.RivNet/3.Analysis/river_plot.R")
 ##################
 #Data on all records
 ##################
-data <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/EPT_IBCH_Data20150826.txt", header=TRUE)
+data <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/EPT_IBCH_Data20150826.txt", header=TRUE)
 
 data$locality_ID <- as.factor(data$locality)
 #data$speciesID <- as.factor(data$speciesID) #species ID is not good, as not unique/eindeutig! use $species
@@ -41,7 +41,7 @@ levels(data$class)
 ##################
 #Data on all localities
 ##################
-loc <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/EPT_IBCH_localities20150826.txt", header=TRUE)
+loc <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/EPT_IBCH_localities20150826.txt", header=TRUE)
 loc  <- loc[loc$valid=="valid",]
 loc$locality_ID <- as.factor(loc$locality)
 # loc$BioGeoRegion[loc$BioGeoRegion=="Oestliche_Zentralalpen"] <- "Zentralalpen"
@@ -124,6 +124,10 @@ for(i in 1:518){
   points(loc$xkoord[loc$year<2015][i], loc$ykoord[loc$year<2015][i], pch=21, 
          bg=p[1+loc$alpha_EPT[loc$year<2015][i]], cex=1.2)
 }
+
+
+
+
 rect(505000, seq(190000,190000+35*2000,2000), 515000, seq(192000,192000+35*2000,2000), border=NA, col=p)
 text(510000, seq(190000,190000+35*2000,length.out=4), labels=c("0","12","24","36"), pos=2, cex=0.6)
 text(488000, (190000+190000+36*2000)/2,"local species richness", srt=90, cex=0.7)

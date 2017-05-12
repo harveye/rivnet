@@ -7,13 +7,13 @@ river_plot <- function(col_rhine="lightblue", col_rhone="plum", col_ticino="medi
 
 {
   #catchment areas/Country boarder
-  CH <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/CH.txt", header=TRUE)
-  rhine  <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/rhine.txt",     
+  CH <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/CH.txt", header=TRUE)
+  rhine  <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/rhine.txt",     
   header=TRUE)
-  rhone <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/rhone.txt", header=TRUE)
+  rhone <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/rhone.txt", header=TRUE)
   rhone_VS <- rhone[rhone$part=="VS",]
   rhone_JU <- rhone[rhone$part=="JU",]
-  inn <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/inn.txt", header=TRUE)
+  inn <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/data/inn.txt", header=TRUE)
   polygon(CH$x[seq(1, length(CH$x),step_CH)], CH$y[seq(1, length(CH$x),step_CH)], col=col_ticino, border=NA)
   polygon(rhine$x[seq(1, length(rhine$x),step_CH)], rhine$y[seq(1, length(rhine$x),step_CH)], col=col_rhine, border=NA)
   polygon(rhone_VS$x[seq(1, length(rhone_VS$x),step_CH)], rhone_VS$y[seq(1, length(rhone_VS$x),step_CH)], col=col_rhone, border=NA)
@@ -57,7 +57,7 @@ if(axes=="no"){
 
 #adds lakes
 if(lakes==TRUE){
- 	 	lk <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/lake_lines.txt", header=TRUE)
+ 	 	lk <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/lake_lines.txt", header=TRUE)
 		for(i in 1:16){
 		polygon(lk$x[lk$river_nr==i] [c(seq(1,length(lk$x[lk$river_nr==i]),step_lk), length(lk$x[lk$river_nr==i]))], 
         lk$y[lk$river_nr==i] [c(seq(1,length(lk$y[lk$river_nr==i]),step_lk), length(lk$y[lk$river_nr==i]))], 
@@ -67,7 +67,7 @@ if(lakes==TRUE){
   	
 #adds rivers 	
 if(rivers==TRUE){
- 	 	ri <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/2.Data/BDM_20170118/river_lines.txt", header=TRUE)
+ 	 	ri <- read.table("~/Documents/Research/Eawag/Projects/12.RivNet/rivnet/Data/river_lines.txt", header=TRUE)
 		for(i in 1:83){
 			lines(ri$x[ri$river_nr==i] [c(seq(1,length(ri$x[ri$river_nr==i]),step_ri), length(ri$x[ri$river_nr==i]))], 
         ri$y[ri$river_nr==i] [c(seq(1,length(ri$y[ri$river_nr==i]),step_ri), length(ri$y[ri$river_nr==i]))], col=water_col)
