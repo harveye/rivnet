@@ -38,9 +38,14 @@ LOC <- read.csv(paste0(Dat,"EPT_IBCH_Localities_EZGNR.csv"), header=T, sep=",", 
 LOC$locality <- as.integer(gsub(',', '', LOC$locality)) #sampling location for BDM sampling
 LOC$EZGNR <- as.integer(gsub(',', '', LOC$EZGNR)) #subcatchment names in the RHINE network that were also sampled by BDM
 AB <- read.table(paste0(Dat,"EPT_IBCH_Data20150826.txt"), header=T) #Abundance data per species per sampling
+EPT_SP <- read.table(paste0(Dat,"EPT_SPECIES_20170515.txt"), header=TRUE) #EPT species functional groups
 IBCH_SP <- read.table(paste0(Dat,"IBCH_SPECIES_20170515.txt"), header=T) #IBCH species functional groups
+#IBCH_SP <- read.table(paste0(Dat,"IBCH_SPECIES_20170323_weighted.txt"), header=T) #IBCH species functional groups
 ENV <- read.table(paste0(Dat,"BDM_Data_For_Ryo_20160115.txt"), header=T) #ENV data per locality
 
+
+which(IBCH_SP$family=="Astacidae")
+IBCH_SP[23,]
 
 #################
 #FIX DATA ISSUES
@@ -54,16 +59,27 @@ min(match4)
 loc.missing = LOC$locality[which(match4==0)] #identify which localities are missing in AB
 #Extract those localities from the datasets 
 LOC = LOC[-which(LOC$locality %in% loc.missing),] #remove them from LOC dataset
+#ENV = ENV[-which(ENV$locality %in% loc.missing),] #remove them from ENV dataset
 
-#####
-#We only use IBCH - thus remove EPT only localities from data
-AB = AB[which(AB$IBCH_EPT=="IBCH"),]
+
+####
+# Several localities (38 total) were sampled for IBCH but not for EPT and vice versa - solve problem by removing them altogether
+loc.IBCH = AB$locality[which(AB$IBCH_EPT=="IBCH")] #localities sampled for IBCH
+loc.EPT = AB$locality[which(AB$IBCH_EPT=="EPT")] #localities sampled for EPT
+
+AB = AB[which(AB$locality %in% loc.IBCH & AB$locality %in% loc.EPT),] #selection localities that were sampled in BOTH EPT AND IBCH
+
+#Change accordingly in other dataset
+
 LOC = LOC[which(LOC$locality %in% AB$locality),] 
 ENV = ENV[which(ENV$locality %in% AB$locality),] 
 
 #verify that all datasets have the same numbers of locations
 length(unique(LOC$locality));length(unique(ENV$locality));length(unique(AB$locality))
-
+#Verify that number of localities is same for EPT and IBCH
+length(unique(AB$locality[which(AB$IBCH_EPT=="EPT")]));length(unique(AB$locality[which(AB$IBCH_EPT=="IBCH")]))
+#Verify that same localities are used for EPT and IBCH
+min(match(AB$locality[which(AB$IBCH_EPT=="EPT")],AB$locality[which(AB$IBCH_EPT=="IBCH")],0))
 
 ##################
 #Sort ENV variables
@@ -75,18 +91,20 @@ many.0 = c("stormsewage_m3.a","wastewater_m3.a","hydropower_count","canal_percen
            "disposalsite_2004_percentage","floodplainwetland_percentage","dam_count")
 ENV = ENV[,-which(colnames(ENV) %in% many.0)]
 #Remove rows with NAs 
-ENV = na.omit(ENV) #that leaves 296 sites
-#ENV2 = [,colSums(is.na(ENV))==0] #remove columns with NAs instead - leaves 14 sites
-#Remove Katharina's variable (which are not available for 100 sites)
-# ENV = ENV[,1:68]
-# ENV = na.omit(ENV) #that leaves 298 sites
+ENV = na.omit(ENV)
 
 #Change accordingly in other dataset
+
 LOC = LOC[which(LOC$locality %in% ENV$locality),] 
 AB = AB[which(AB$locality %in% ENV$locality),] 
 
 #verify that all datasets have the same numbers of locations
 length(unique(LOC$locality));length(unique(ENV$locality));length(unique(AB$locality))
+#Verify that number of localities is same for EPT and IBCH
+length(unique(AB$locality[which(AB$IBCH_EPT=="EPT")]));length(unique(AB$locality[which(AB$IBCH_EPT=="IBCH")]))
+#Verify that same localities are used for EPT and IBCH
+min(match(AB$locality[which(AB$IBCH_EPT=="EPT")],AB$locality[which(AB$IBCH_EPT=="IBCH")],0))
+
 
 
 #########################################################################
@@ -107,7 +125,7 @@ for (i in 1:length(V(SUBGRAPH2)$name)){
     V(SUBGRAPH2)$name[i] <- LOC$locality[x]
 }
 
-#This should be 208 sites
+#This should be 358 sites
 length(unique(sub <- which(V(SUBGRAPH2)$name %in% LOC$locality)))
 
 loc.rhine = V(SUBGRAPH2)$name[sub] #Extract the names and order of the localities 
@@ -119,12 +137,12 @@ loc.rhine = loc.rhine[order(loc.rhine)]
 #Calculate network metrics for the whole network and then extract the values only for the nodes corresponding to BDM sampled sites
 ##################
 
-BETW <- betweenness(SUBGRAPH2, v=V(SUBGRAPH2)[loc.rhine],directed=T,nobigint=T,normalized=T)
-DEG  <- degree(SUBGRAPH2, v=V(SUBGRAPH2)[loc.rhine],mode="in") #number of adjacent edges to a vertex
+BETW <- betweenness(SUBGRAPH2, v=V(SUBGRAPH2)[loc.rhine])
+DEG  <- degree(SUBGRAPH2, v=V(SUBGRAPH2)[loc.rhine]) #number of adjacent edges to a vertex
 CENT  <- closeness(SUBGRAPH2, vids=V(SUBGRAPH2)[loc.rhine],mode="out") #how many steps is required to access every other vertex from a given vertex
 net.dist = distances(SUBGRAPH2, v=V(SUBGRAPH2)[loc.rhine], to=V(SUBGRAPH2)[loc.rhine])
 
-hist(DEG)
+hist(BETW)
 
 net.met = cbind(BETW,DEG,CENT)
 rm(BETW);rm(DEG);rm(CENT)
@@ -136,10 +154,10 @@ rm(BETW);rm(DEG);rm(CENT)
 
 ENV = ENV[which(ENV$locality %in% loc.rhine),] #Select only site from the RHIN 
 ENV$drainage #only RHEIN remains
-length(unique(ENV$locality)) #should be 208
-ENV$distance_to_outlet[ENV$locality==650243] #value of dist.to.outlet for locality 521174 before re-ordering
+length(unique(ENV$locality)) #should be 358
+ENV$distance_to_outlet[ENV$locality==521174] #value of dist.to.outlet for locality 521174 before re-ordering
 ENV = ENV[match(loc.rhine,ENV$locality),] #re-order to match with locality order of network metrics
-ENV$distance_to_outlet[ENV$locality==650243] #should be same value if re-ordering worked properly
+ENV$distance_to_outlet[ENV$locality==521174] #should be same value if re-ordering worked properly
 ENV= droplevels(ENV)
 
 LOC = LOC[which(LOC$locality %in% loc.rhine),]
@@ -162,12 +180,12 @@ detach("package:igraph", unload=TRUE)
 #Merge together
 ##################
 rivnet = as.data.frame(cbind(LOC$xkoord,LOC$ykoord,ENV,net.met))
-row.names(rivnet) = 1:208
+row.names(rivnet) = 1:203
 rm(net.met)
 colnames(rivnet)[1:2] = c("x","y")
 rivnet$x = as.integer(gsub(",","",rivnet$x))
 rivnet$y = as.integer(gsub(",","",rivnet$y))
-length(unique(rivnet$locality)) #should be 208
+length(unique(rivnet$locality)) #should be 203
 
 
 #########################################################################
@@ -176,7 +194,8 @@ length(unique(rivnet$locality)) #should be 208
 
 ##Species abundance dataset
 AB = AB[which(AB$locality %in% loc.rhine),] #select only sites from the RHEIN 
-length(unique(AB$locality)) #should be 208
+length(unique(AB$locality)) #should be 203
+AB = AB[-which(is.na(AB$species)),] #remove species with name "NA"(3 EPT species) (to avoid issues below) - only three
 AB$drainage #only RHEIN remains
 AB = droplevels(AB) #drop unused level
 
@@ -200,27 +219,34 @@ AB$predator = 0
 AB$parasite = 0
 AB$other = 0
 
+#This loop distribute the functional group info from EPT_SP for each species in the AB dataset
 for(i in 1:nrow(AB)){
-  if(AB$IBCH_EPT[i] == "IBCH")  AB[i,14:23] = IBCH_SP[which(IBCH_SP$family %in% AB$family[i]),6:15] 
+  if(AB$species[i] %in%  EPT_SP$species==T) AB[i,14:23] = EPT_SP[which(EPT_SP$species %in% AB$species[i]),8:17] 
+  else if(AB$IBCH_EPT[i] == "IBCH") {
+    AB[i,14:23] = IBCH_SP[which(IBCH_SP$family %in% AB$family[i]),6:15] 
+  }
 }
-
 
 ##################
 #Verify that the loop worked properly 
 ##################
 
 #The sum of columns 14:23 should be 10
+summary(rowSums(AB[which(AB$IBCH_EPT=="EPT"),14:23])) # Good
 summary(rowSums(AB[which(AB$IBCH_EPT=="IBCH"),14:23])) # not good
 miss.fam = unique(AB$family[which(rowSums(AB[,14:23])==0)]) 
 miss.fam
-#1 family for which we could not informaiton and experts did not know
+#2 families for which we could not informaiton and experts did not know
 AB = AB[-which(AB$family %in% miss.fam),] #Remove them for now 
 summary(rowSums(AB[which(AB$IBCH_EPT=="IBCH"),14:23])) # good! 
 
 #pick random species or family from this list
+AB$species[which(AB$IBCH_EPT=="EPT")]
 AB$family[which(AB$IBCH_EPT=="IBCH")]
 
 #copy and paste below and make sure that the information corresponds
+AB[which(AB$species=="Epeorus_assimilis")[1],14:23]
+EPT_SP[which(EPT_SP$species=="Epeorus_assimilis"),8:17]
 AB[which(AB$family=="Empididae")[1],14:23]
 IBCH_SP[which(IBCH_SP$family=="Empididae"),6:15]
 
@@ -228,15 +254,18 @@ IBCH_SP[which(IBCH_SP$family=="Empididae"),6:15]
 #Distribute species abundances (nr_ind) to each functional group 
 ##################
 
+
+
 #First: Convert functional group columns into relative proportions (sum = 1 instead of 10 as it is now)
-#  AB.fun = AB
-#  AB.fun[,14:23] = AB.fun[,14:23]/10
+# AB.fun = AB
+# AB.fun[,14:23] = AB.fun[,14:23]/10
 # #Second: Divide columns nr_ind by each functional group columns
-#  for(i in 1:nrow(AB.fun)){
-#    for(j in 14:23) {
-#      if(AB.fun[i,j]!=0) AB.fun[i,j] = AB.fun$nr_ind[i]*AB.fun[i,j]
-#    }
-#  }
+# for(i in 1:nrow(AB.fun)){
+#   for(j in 14:23) {
+#     if(AB.fun[i,j]!=0) AB.fun[i,j] = AB.fun$nr_ind[i]*AB.fun[i,j]
+#   }
+# }
+
 
 
 #WARNING
@@ -256,6 +285,7 @@ for(i in 1:nrow(AB.fun)){
  }
 
 
+
 #Third: verify that it worked well 
 which(AB.fun$family=="Astacidae")
 AB.fun[23,]
@@ -270,6 +300,14 @@ rowSums(AB.fun[,14:23])[690]
 ##################
 #Calculate relative abundance of each functional group per site 
 ##################
+
+#One for EPT
+fun.mat.EPT = matrix(0,nrow=nrow(ENV),ncol=10)
+colnames(fun.mat.EPT) = colnames(AB)[14:23]
+for(i in 14:23){
+  fun.mat.EPT[,i-13] = tapply(AB.fun[which(AB.fun$IBCH_EPT=="EPT"),i],AB.fun$locality[which(AB.fun$IBCH_EPT=="EPT")],sum)
+  
+}
 
 #One for IBCH
 fun.mat.IBCH = matrix(0,nrow=nrow(ENV),ncol=10)
@@ -286,11 +324,19 @@ summary(fun.mat.IBCH)
 # fun.mat.IBCH = fun.mat.IBCH[,-which(colMedians(fun.mat.IBCH)<=0.00 | colnames(fun.mat.IBCH)=="other")]
 fun.mat.IBCH = fun.mat.IBCH[,-which(colSums(fun.mat.IBCH)==0 | colnames(fun.mat.IBCH)=="other")]
 
+summary(fun.mat.EPT) 
+# fun.mat.EPT = fun.mat.EPT[,-which(colMedians(fun.mat.EPT)<=0.00 | colnames(fun.mat.EPT)=="other")]
+fun.mat.EPT = fun.mat.EPT[,-which(colSums(fun.mat.EPT)==0 | colnames(fun.mat.EPT)=="other")]
+
 #detach("package:matrixStats", unload=TRUE)
 
 #Standardize to row = 1 for relative abundance
 
+fun.mat.EPT.stand = fun.mat.EPT/rowSums(fun.mat.EPT)
+
 fun.mat.IBCH.stand = fun.mat.IBCH/rowSums(fun.mat.IBCH)
+
+rowSums(fun.mat.EPT.stand) #should all be one
 
 rowSums(fun.mat.IBCH.stand) 
 
@@ -303,6 +349,9 @@ head(unique(AB.fun$locality))
 head(tapply(AB.fun[which(AB.fun$IBCH_EPT=="IBCH"),14],AB.fun$locality[which(AB.fun$IBCH_EPT=="IBCH")],sum))
 head(loc.rhine)
 head(colnames(net.dist))
+#verify that they are exactly the localities
+min(match(row.names(tapply(AB.fun[which(AB.fun$IBCH_EPT=="EPT"),14],AB.fun$locality[which(AB.fun$IBCH_EPT=="EPT")],sum)),rivnet$locality,0))
+min(match(rivnet$locality,row.names(tapply(AB.fun[which(AB.fun$IBCH_EPT=="EPT"),14],AB.fun$locality[which(AB.fun$IBCH_EPT=="EPT")],sum)),0))
 
 #########################################################################
 ################# Diversity
@@ -346,7 +395,7 @@ library(packfor)
 #Sort ENV variables for analysis
 ##################
 
-sel.var = c("Strahler_order","distance_to_outlet","catchment","width","depth","var_depth",
+sel.var = c("year","drainge","Strahler_order","distance_to_outlet","catchment","width","depth","var_depth",
             "var_waterlevel","river_bed_modified","natural_cascades","width_riparian_left","width_riparian_right",
             "mud","turbidity","foam","FeS","clogging","waste","periphyton","algae","moss","macrophytes","MSK_class",
             "Agriculture_prop_10km","Woods_prop_10km","Meadows_prop_10km","Settlement_prop_10km","Water_prop_10km",
@@ -387,7 +436,7 @@ river_plot(lakes=TRUE, rivers=TRUE, axes="degree", river_nr=FALSE) #, col_inn = 
 scale_bar(495000,545000,70000,76000, text=c("0", "50 km"))
 #scale_bar(540000,590000,140000,146000, text=c("0", "50 km"))
 #Add pie charts
-for(i in 1:208){
+for(i in 1:203){
   floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(fun.mat.IBCH[i,]),radius=3200,
                col=c('#4daf4a','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'))
 }
@@ -395,9 +444,41 @@ for(i in 1:208){
 legend("topleft",c("Grazer","Shredder","GAT","AFF","PFF","Predator","Parasite"),
        col=c('#4daf4a','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'),pch=16,ncol=2,bty="n")
 
+# #Add pie charts
+#  for(i in 1:203){
+#    floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(fun.mat.IBCH[i,]),radius=3200,
+#                 col=c('#4daf4a','#999999','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'))
+#  }
+#  #NEED TO USE FLORIAN FLOATING PIE BECAUSE THE NORMAL FUNCTION SKIP VALUE 0 WHICH CREATE AN ISSUE WITH COLOR CODE
+#  legend("topleft",c("Grazer","Miner","Xylophagus","Shredder","GAT","AFF","PFF","Predator","Parasite"),
+#         col=c('#4daf4a','#999999','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'),pch=16,ncol=2,bty="n")
+# 
+
+
 dev.off()
 
 #from color brewer:['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']
+
+###############
+## EPT
+pdf("~/Documents/Research/Eawag/Projects/12.RivNet/3.Results/PieCharts_EPT.pdf", width=10, height=8)
+#Load map
+par(mar=c(3,4.5,0.4,0.6), mgp=c(1.7,0.3,0), tcl=0.2, xaxs="i", yaxs="i")
+plot(NA,xlim=c(478000,838000), ylim=c(60000,300000), xlab=NA, ylab=NA, axes=F)
+#plot(NA,xlim=range(rivnet.all$x), ylim=range(rivnet.all$y), xlab=NA, ylab=NA, axes=F)
+box()
+river_plot(lakes=TRUE, rivers=TRUE, axes="degree", river_nr=FALSE) #, col_inn = "mediumseagreen")
+scale_bar(495000,545000,70000,76000, text=c("0", "50 km"))
+#scale_bar(540000,590000,140000,146000, text=c("0", "50 km"))
+#Add pie charts
+for(i in 1:203){
+  floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(ceiling(fun.mat.EPT[i,])),radius=3200,
+                col=c('#4daf4a','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c'))
+}
+#NEED TO USE FLORIAN FLOATING PIE BECAUSE THE NORMAL FUNCTION SKIP VALUE 0 WHICH CREATE AN ISSUE WITH COLOR CODE
+legend("topleft",c("Grazer","Xylophagous","Shredder","GAT","AFF","PFF","Predator"),
+       col=c('#4daf4a','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c'),pch=16,ncol=2,bty="n")
+dev.off()
 
 }
 
@@ -408,11 +489,14 @@ dev.off()
 ##################
 
 #Changes in relative proportion
-dist.IBCH.mat = vegdist(decostand(fun.mat.IBCH,"hell"),"euclidean")
+dist.EPT.mat.prop = vegdist(decostand(fun.mat.EPT.stand,"hell"),"euclidean")
+dist.IBCH.mat.prop = vegdist(decostand(fun.mat.IBCH.stand,"hell"),"euclidean")
 #Changes in absolute composition and abundances
+dist.EPT.mat.bray= vegdist(decostand(fun.mat.EPT,"hell"),"bray")
 dist.IBCH.mat.bray= vegdist(decostand(fun.mat.IBCH,"hell"),"bray")
 #Null expectation after controlling for alpha diversity
-dist.IBCH.mat.null= vegdist(decostand(fun.mat.IBCH,"hell"),"raup")
+dist.EPT.mat.null= vegdist(fun.mat.EPT.stand,"raup")
+dist.IBCH.mat.null= vegdist(fun.mat.IBCH.stand,"raup")
 
 
 ##################
@@ -424,18 +508,26 @@ dist.IBCH.mat.null= vegdist(decostand(fun.mat.IBCH,"hell"),"raup")
 
 #Full models
 full.IBCH = capscale(decostand(fun.mat.IBCH,"hell") ~ ., rivnet[,colnames(rivnet) %in% sel.var],distance="euclidean") #Hellinger divide by row sum thus this is the equivalent of euclidean distance on relative abundance
-anova(full.IBCH)
+full.EPT = capscale(decostand(fun.mat.EPT,'hell') ~ ., rivnet[,colnames(rivnet) %in% sel.var],distance="euclidean")
+anova(full.IBCH);anova(full.EPT)
 
 #Model selection 
-(IBCH.sel = ordistep(capscale(decostand(fun.mat.IBCH,'hell') ~ 1, rivnet[,colnames(rivnet) %in% sel.var], distance="euclidean"), scope = formula(full.IBCH),permutations = how(nperm=500)))
+(IBCH.sel = ordistep(capscale(decostand(fun.mat.IBCH,'hell') ~ 1, rivnet[,colnames(rivnet) %in% sel.var], distance="euclidean"), scope = formula(full.IBCH),permutations = how(nperm=199)))
+(EPT.sel = ordistep(capscale(decostand(fun.mat.EPT,'hell') ~ 1, rivnet[,colnames(rivnet) %in% sel.var], distance="euclidean"), scope = formula(full.EPT),permutations = how(nperm=199)))
 
 #Save result tables
 IBCH.anova = anova(IBCH.sel, by="terms", permu=200)
+EPT.anova = anova(EPT.sel, by="terms", permu=200)
 write.csv(IBCH.anova,paste0(fig.p,'IBCH_model.csv'))
+write.csv(EPT.anova,paste0(fig.p,'EPT_model.csv'))
+
 
 ###REPEAT MODELS FOR DATA WHERE ALTITUDE DOES NOT CORRELATE WITH DISTANCE TO OUTLET (TO SEPERATE NETWORK EFFECT FROM ALTITUDE)
 plot(rivnet$distance_to_outlet ~ rivnet$Masl_2)
+
 x = rivnet[which(rivnet$Masl_2<=700),]
+
+
 plot(x$distance_to_outlet ~ x$Masl_2)
 
 ################
@@ -443,14 +535,18 @@ plot(x$distance_to_outlet ~ x$Masl_2)
 
 #Full models
 full.IBCH = capscale(decostand(fun.mat.IBCH[which(rivnet$Masl_2<=700),],"hell") ~ ., x[,colnames(x) %in% sel.var],distance="euclidean") #Hellinger divide by row sum thus this is the equivalent of euclidean distance on relative abundance
-anova(full.IBCH)
+full.EPT = capscale(decostand(fun.mat.EPT[which(rivnet$Masl_2<=700),],'hell') ~ ., x[,colnames(x) %in% sel.var],distance="euclidean")
+anova(full.IBCH);anova(full.EPT)
 
 #Model selection 
-(IBCH.sel.NOALT = ordistep(capscale(decostand(fun.mat.IBCH[which(rivnet$Masl_2<=700),],"hell") ~ 1, x[,colnames(x) %in% sel.var], distance="euclidean"), scope = formula(full.IBCH),permutations = how(nperm=500)))
+(IBCH.sel.NOALT = ordistep(capscale(decostand(fun.mat.IBCH[which(rivnet$Masl_2<=700),],"hell") ~ 1, x[,colnames(x) %in% sel.var], distance="euclidean"), scope = formula(full.IBCH),permutations = how(nperm=199)))
+(EPT.sel.NOALT = ordistep(capscale(decostand(fun.mat.EPT[which(rivnet$Masl_2<=700),],'hell') ~ 1, x[,colnames(x) %in% sel.var], distance="euclidean"), scope = formula(full.EPT),permutations = how(nperm=199)))
 
 #Save result tables
 IBCH.anova.NOALT = anova(IBCH.sel.NOALT, by="terms", permu=200)
+EPT.anova.NOALT = anova(EPT.sel.NOALT, by="terms", permu=200)
 write.csv(IBCH.anova.NOALT,paste0(fig.p,'IBCH_model_NOALT.csv'))
+write.csv(EPT.anova.NOALT,paste0(fig.p,'EPT_model_NOALT.csv'))
 
 ##################
 #Figures 
@@ -458,7 +554,9 @@ write.csv(IBCH.anova.NOALT,paste0(fig.p,'IBCH_model_NOALT.csv'))
 
 #Select variables to plot
 var.sel.IBCH = rivnet[,which(colnames(rivnet) %in% row.names(IBCH.anova))]
+var.sel.EPT = rivnet[,which(colnames(rivnet) %in% row.names(EPT.anova))]
 var.sel.IBCH.NOALT = x[,which(colnames(x) %in% row.names(IBCH.anova.NOALT))]
+var.sel.EPT.NOALT = x[,which(colnames(x) %in% row.names(EPT.anova.NOALT))]
 
 #######
 # #Stacked figures (do not work very well because of the nature of the data)
@@ -506,6 +604,27 @@ text(IBCH.sel, display="sp", col="black",cex=1.5)
 legend("topleft",legend=paste("adjRsquare",RsquareAdj((IBCH.sel))[2]))
 dev.off()
 
+pdf(paste0(fig.p,'dbRDA_EPT.pdf'),width=15,height = 10)
+scores.EPT = scores(EPT.sel)
+plot(EPT.sel,type='none',display=c('bp','sites'))
+points(scores.EPT$sites,pch=17,col="red")
+#orditorp(sel.nat,display='sites',pch=16,air=0.5,cex=1)
+text(EPT.sel, display="bp", col="blue",cex=1.5)
+text(EPT.sel, display="sp", col="black",cex=1.5)
+legend("topleft",legend=paste("adjRsquare",RsquareAdj((EPT.sel))[2]))
+dev.off()
+lala = gsub(' |\\+','',rownames(test$anova))
+
+pdf(paste0(fig.p,'dbRDA_EPT_NOALT.pdf'),width=15,height = 10)
+scores.EPT = scores(EPT.sel.NOALT)
+plot(EPT.sel.NOALT,type='none',display=c('bp','sites'))
+points(scores.EPT$sites,pch=17,col="red")
+#orditorp(sel.nat,display='sites',pch=16,air=0.5,cex=1)
+text(EPT.sel.NOALT, display="bp", col="blue",cex=1.5)
+text(EPT.sel.NOALT, display="sp", col="black",cex=1.5)
+legend("topleft",legend=paste("adjRsquare",RsquareAdj((EPT.sel.NOALT))[2]))
+dev.off()
+
 pdf(paste0(fig.p,'dbRDA_IBCH_NOALT.pdf'),width=15,height = 10)
 scores.IBCH = scores(IBCH.sel.NOALT)
 plot(IBCH.sel.NOALT,type='none',display=c('bp','sites'))
@@ -547,6 +666,35 @@ for(i in 1:ncol(var.sel.IBCH.NOALT)) {
 dev.off()
 
 
+#EPT - PERMANOVA VARIABLES
+pdf(paste0(fig.p,"EPT_fun_SELECTED.pdf"), width=8, height=8)
+
+for(i in 1:ncol(var.sel.EPT)) {
+  for(j in 1:ncol(fun.mat.EPT.stand)) {
+    
+    plot(fun.mat.EPT.stand[,j] ~ var.sel.EPT[,i],pch=16,ylab=paste(colnames(fun.mat.EPT.stand)[j],"prop"),xlab=colnames(var.sel.EPT)[i])
+    
+  }
+}
+
+dev.off()
+
+
+#NOALT
+pdf(paste0(fig.p,"EPT_fun_SELECTED_NOALT.pdf"), width=8, height=8)
+
+for(i in 1:ncol(var.sel.EPT.NOALT)) {
+  for(j in 1:ncol(fun.mat.EPT.stand)) {
+    
+    plot(fun.mat.IBCH[which(rivnet$Masl_2<=700),j] ~ var.sel.EPT.NOALT[,i],pch=16,ylab=paste(colnames(fun.mat.EPT.stand)[j],"prop"),xlab=colnames(var.sel.EPT.NOALT)[i])
+    
+  }
+}
+
+dev.off()
+
+
+
 detach("package:vegan", unload=TRUE)
 detach("package:packfor", unload=TRUE)
 
@@ -565,8 +713,8 @@ env.dist.EPT = vegdist(scale(VAR[,which(colnames(VAR) %in% rownames(EPT.anova))]
 mantel(net.dist,as.matrix(xy.dist))
 plot(log(as.matrix(net.dist))~as.matrix(xy.dist))
 
-mantel(net.dist,dist.IBCH.mat)
-mantel(xy.dist,dist.IBCH.mat)
+mantel(net.dist,dist.IBCH.mat.prop)
+mantel(xy.dist,dist.IBCH.mat.prop)
 
 mantel.partial(dist.IBCH.mat.prop,net.dist,env.dist.IBH)
 mantel.partial(dist.IBCH.mat.prop,xy.dist,env.dist.IBH)
