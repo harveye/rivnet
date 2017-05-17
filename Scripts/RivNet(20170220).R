@@ -38,10 +38,14 @@ LOC <- read.csv(paste0(Dat,"EPT_IBCH_Localities_EZGNR.csv"), header=T, sep=",", 
 LOC$locality <- as.integer(gsub(',', '', LOC$locality)) #sampling location for BDM sampling
 LOC$EZGNR <- as.integer(gsub(',', '', LOC$EZGNR)) #subcatchment names in the RHINE network that were also sampled by BDM
 AB <- read.table(paste0(Dat,"EPT_IBCH_Data20150826.txt"), header=T) #Abundance data per species per sampling
-EPT_SP <- read.table(paste0(Dat,"EPT_SPECIES_20170315.txt"), header=TRUE) #EPT species functional groups
-IBCH_SP <- read.table(paste0(Dat,"IBCH_SPECIES_20170315.txt"), header=T) #IBCH species functional groups
+EPT_SP <- read.table(paste0(Dat,"EPT_SPECIES_20170515.txt"), header=TRUE) #EPT species functional groups
+IBCH_SP <- read.table(paste0(Dat,"IBCH_SPECIES_20170515.txt"), header=T) #IBCH species functional groups
+#IBCH_SP <- read.table(paste0(Dat,"IBCH_SPECIES_20170323_weighted.txt"), header=T) #IBCH species functional groups
 ENV <- read.table(paste0(Dat,"BDM_Data_For_Ryo_20160115.txt"), header=T) #ENV data per locality
 
+
+which(IBCH_SP$family=="Astacidae")
+IBCH_SP[23,]
 
 #################
 #FIX DATA ISSUES
@@ -250,33 +254,48 @@ IBCH_SP[which(IBCH_SP$family=="Empididae"),6:15]
 #Distribute species abundances (nr_ind) to each functional group 
 ##################
 
-AB.fun = AB
 
-#First: Convert functional group columns into relative proportions (sum = 1 instead of 10 as it is now) 
-AB.fun[,14:23] = AB.fun[,14:23]/10
 
-#Second: Divide columns nr_ind by each functional group columns
+#First: Convert functional group columns into relative proportions (sum = 1 instead of 10 as it is now)
+# AB.fun = AB
+# AB.fun[,14:23] = AB.fun[,14:23]/10
+# #Second: Divide columns nr_ind by each functional group columns
 # for(i in 1:nrow(AB.fun)){
 #   for(j in 14:23) {
 #     if(AB.fun[i,j]!=0) AB.fun[i,j] = AB.fun$nr_ind[i]*AB.fun[i,j]
 #   }
 # }
 
-# #WARNING
-# #Alternative way: Put all nr_ind for one species/family into the functional group with highest ranking
- for(i in 1:nrow(AB.fun)){
+
+
+#WARNING
+#Alternative way: Put all nr_ind for one species/family into the functional group with highest ranking
+AB.fun = AB
+AB.fun[,14:23] = AB.fun[,14:23]/10
+for(i in 1:nrow(AB.fun)){
    for(j in 14:23) {
-     if(AB.fun[i,j]==max(AB.fun[i,14:23])) {AB.fun[i,j] = AB.fun$nr_ind[i]}
-     else{ AB.fun[i,j] = 0
+     if(AB[i,j]==5 & length(which(AB[i,14:23]==5))==2) { AB.fun[i,j] = AB.fun$nr_ind[i]*AB.fun[i,j]
+     } else if(AB[i,j]==max(AB[i,14:23]) & length(which(AB[i,14:23]==5))!=2 & length(which(AB[i,14:23]==AB[i,j]))!=2) {
+       AB.fun[i,j] = AB.fun$nr_ind[i]
+     } else if(AB[i,j]==max(AB[i,14:23]) & length(which(AB[i,14:23]==AB[i,j]))==2) {
+       AB.fun[i,j] = AB.fun$nr_ind[i]/2
+       }  else{ AB.fun[i,j] = 0
      }
    }
  }
-#a species have an equal value in two functional groups (e.g., 0.5 in shredder and 0.5 in filter feeder), the loop does not work well for these sites
+
 
 
 #Third: verify that it worked well 
+which(AB.fun$family=="Astacidae")
+AB.fun[23,]
 plot(AB.fun$nr_ind ~ rowSums(AB.fun[,14:23]),xlim=c(0,100),ylim=c(0,100))
-#the plot shouldbe a relationship one to one if the distribution among each functional group was well done
+which(AB.fun$nr_ind!=rowSums(AB.fun[,14:23])) #careful with rounding
+which(is.na(AB.fun[,14:23]))
+which(rowSums(AB.fun[,14:23])==0)
+AB.fun[690,]
+AB.fun$nr_ind[690]
+rowSums(AB.fun[,14:23])[690]
 
 ##################
 #Calculate relative abundance of each functional group per site 
@@ -419,12 +438,26 @@ scale_bar(495000,545000,70000,76000, text=c("0", "50 km"))
 #Add pie charts
 for(i in 1:203){
   floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(fun.mat.IBCH[i,]),radius=3200,
-               col=c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf'))
+               col=c('#4daf4a','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'))
 }
 #NEED TO USE FLORIAN FLOATING PIE BECAUSE THE NORMAL FUNCTION SKIP VALUE 0 WHICH CREATE AN ISSUE WITH COLOR CODE
-legend("topleft",c("Grazer","Xylophagous","Shredder","GAT","AFF","PFF","Predator","Parasite"),
-       col=c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf'),pch=16,ncol=2,bty="n")
+legend("topleft",c("Grazer","Shredder","GAT","AFF","PFF","Predator","Parasite"),
+       col=c('#4daf4a','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'),pch=16,ncol=2,bty="n")
+
+# #Add pie charts
+#  for(i in 1:203){
+#    floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(fun.mat.IBCH[i,]),radius=3200,
+#                 col=c('#4daf4a','#999999','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'))
+#  }
+#  #NEED TO USE FLORIAN FLOATING PIE BECAUSE THE NORMAL FUNCTION SKIP VALUE 0 WHICH CREATE AN ISSUE WITH COLOR CODE
+#  legend("topleft",c("Grazer","Miner","Xylophagus","Shredder","GAT","AFF","PFF","Predator","Parasite"),
+#         col=c('#4daf4a','#999999','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c','#f781bf'),pch=16,ncol=2,bty="n")
+# 
+
+
 dev.off()
+
+#from color brewer:['#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628','#f781bf','#999999']
 
 ###############
 ## EPT
@@ -439,15 +472,17 @@ scale_bar(495000,545000,70000,76000, text=c("0", "50 km"))
 #scale_bar(540000,590000,140000,146000, text=c("0", "50 km"))
 #Add pie charts
 for(i in 1:203){
-  floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(fun.mat.EPT[i,]),radius=3200,
-                col=c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628'))
+  floating.pieF(xpos=rivnet$x[i],ypos=rivnet$y[i],x=as.integer(ceiling(fun.mat.EPT[i,])),radius=3200,
+                col=c('#4daf4a','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c'))
 }
 #NEED TO USE FLORIAN FLOATING PIE BECAUSE THE NORMAL FUNCTION SKIP VALUE 0 WHICH CREATE AN ISSUE WITH COLOR CODE
 legend("topleft",c("Grazer","Xylophagous","Shredder","GAT","AFF","PFF","Predator"),
-       col=c('#e41a1c','#377eb8','#4daf4a','#984ea3','#ff7f00','#ffff33','#a65628'),pch=16,ncol=2,bty="n")
+       col=c('#4daf4a','#377eb8','#a65628','#984ea3','#ff7f00','#ffff33','#e41a1c'),pch=16,ncol=2,bty="n")
 dev.off()
 
 }
+
+
 
 ##################
 #Extract dissimilarity matrices
@@ -679,7 +714,7 @@ mantel(net.dist,as.matrix(xy.dist))
 plot(log(as.matrix(net.dist))~as.matrix(xy.dist))
 
 mantel(net.dist,dist.IBCH.mat.prop)
-mantel(xy.dist,dist.EPT.mat.prop)
+mantel(xy.dist,dist.IBCH.mat.prop)
 
 mantel.partial(dist.IBCH.mat.prop,net.dist,env.dist.IBH)
 mantel.partial(dist.IBCH.mat.prop,xy.dist,env.dist.IBH)
