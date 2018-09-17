@@ -33,7 +33,7 @@ output <- "../rivnet/output/"
 #...Load RDATA from Rivnet_DatMan.R 
 load(paste0(output,"Rivnet.RData"))
 
-
+  
 ##################
 #Extract predictors 
 ##################
