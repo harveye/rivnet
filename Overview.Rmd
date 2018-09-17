@@ -1,0 +1,14 @@
+---
+title: "Overview"
+author: "Eric"
+date: '2018-09-17'
+output: github_document
+---
+
+#Overview of the RIVNET project
+
+Scripts order: 
+1- Rivnet_DatMan.R output: Data for ordination
+2- Rivnet_ORD.R output: Data for SEM
+3- Rivnet_SEM.R
+
