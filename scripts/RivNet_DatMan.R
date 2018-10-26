@@ -336,6 +336,7 @@ head(colnames(net.dist))
 
 
 #...save into .RData (you can add anything object types to the .RData)
+rivnet <- rivnet[,-c(1:3)] #remove locations of site for copyright purpose
 save(rivnet,fun.mat.IBCH,fun.mat.IBCH.stand,file=paste0(output,"Rivnet.RData"))
 
 
