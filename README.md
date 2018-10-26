@@ -12,15 +12,15 @@
 
 ### Scripts order: 
 The scripts have to be run in a specific order to run properly
-1- Rivnet_DatMan.R (**this script cannot be run - 'Important notice' below**)
-    input: Raw data
-    output: Data for ordination
-2- Rivnet_ORD.R
-    input: Data for ordination
-    output: Data for SEM
-3- Rivnet_SEM.R
-    input: Data for SEM
-    output: SEM results
+- 1- Rivnet_DatMan.R (**this script cannot be run - 'Important notice' below**)
+   -- input: Raw data
+   -- output: Data for ordination
+- 2- Rivnet_ORD.R
+   -- input: Data for ordination
+   -- output: Data for SEM
+- 3- Rivnet_SEM.R
+   -- input: Data for SEM
+   -- output: SEM results
 
 Rivnet_Piemap.R and Rivnet_TimeBxplot can be used in any order. The former will generate a raw version of Figure 1 in the article, and the second will generate a simple boxplot figure to investigate the effect of 'sampling year' on patterns. 
 
