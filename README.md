@@ -1,6 +1,6 @@
 # Rivnet project 
 
-## Code and R data repository for the Harvey and Altermatt XX article
+## Code and R data repository for the Harvey and Altermatt. in press. Ecology. Regulation of the functional structure of aquatic communities across spatial scales in a major river network.
 
 ### Repository structure:
 - `data`: Raw data (empty see 'Important notice below')
@@ -26,3 +26,5 @@ Rivnet_TimeBxplot can be used in any order. It will generate a simple boxplot fi
 
 **Please note**
 Unfortunately because of copyright issues we were not allowed to include the original data from the Swiss BioDiversity Monitoring program (`data` folder empty). This means that all data available (see `output` folder) folder are pre-processed information from the original data and that the Rivnet_DatMan.R script is here for information purpose only but will not run properly. Inquiries to obtain the original raw data can be made directily to the BDM organization: http://www.biodiversitymonitoring.ch/en/home.html
+
+[![DOI](https://zenodo.org/badge/83574106.svg)](https://zenodo.org/badge/latestdoi/83574106)
